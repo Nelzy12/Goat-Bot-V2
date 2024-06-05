@@ -45,12 +45,12 @@ module.exports = {
   onStart: async function ({ api, event, args }) {
     const input = args.join(' ').trim();
     if (!input) {
-      api.sendMessage(`𝗔𝗦𝗦𝗜𝗦𝗧𝗔𝗡𝗧 𝗔𝗡𝗦𝗪𝗘𝗥𝗘𝗗✅\n━━━━━━━━━━━━━━━━\nPlease provide a question or statement.\n━━━━━━━━━━━━━━━━`, event.threadID, event.messageID);
+      api.shareContact(`𝗔𝗦𝗦𝗜𝗦𝗧𝗔𝗡𝗧 𝗔𝗡𝗦𝗪𝗘𝗥𝗘𝗗✅\n━━━━━━━━━━━━━━━━\nPlease provide a question or statement.\n━━━━━━━━━━━━━━━━`, event.threadID, event.messageID);
       return;
     }
 
     const { response, messageID } = await getAIResponse(input, event.senderID, event.messageID);
-    api.sendMessage(`𝗔𝗦𝗦𝗜𝗦𝗧𝗔𝗡𝗧 𝗔𝗡𝗦𝗪𝗘𝗥𝗘𝗗✅ \n━━━━━━━━━━━━━━━━\n${response}\n━━━━━━━━━━━━━━━━`, event.threadID, messageID);
+    api.shareContact(`𝗔𝗦𝗦𝗜𝗦𝗧𝗔𝗡𝗧 𝗔𝗡𝗦𝗪𝗘𝗥𝗘𝗗✅ \n━━━━━━━━━━━━━━━━\n${response}\n━━━━━━━━━━━━━━━━`, event.threadID, messageID);
   },
   onChat: async function ({ event, message }) {
     const messageContent = event.body.trim().toLowerCase();

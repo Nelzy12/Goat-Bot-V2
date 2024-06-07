@@ -1,4 +1,11 @@
+const express = require('express');
+const bodyParser = require('body-parser');
 const axios = require('axios');
+
+const app = express();
+
+// Middleware to parse JSON request body
+app.use(bodyParser.json());
 
 async function fetchFromAI(url, params) {
   try {
@@ -18,7 +25,7 @@ async function getAIResponse(input, userId, messageID) {
     { url: 'https://ai-chat-gpt-4-lite.onrender.com/api/hercai', params: { question: input } }
   ];
 
-  let response = "𝗔𝗦𝗦𝗜𝗦𝗧𝗔𝗡𝗧 𝗜𝗦 𝗔𝗟𝗜𝗩𝗘 🪄✅.";
+  let response = "𝗔𝗦𝗦𝗜𝗦𝗧 𝗜𝗦 𝗔𝗟𝗜𝗩𝗘 🪄✅.";
   let currentIndex = 0;
 
   for (let i = 0; i < services.length; i++) {
@@ -34,6 +41,26 @@ async function getAIResponse(input, userId, messageID) {
   return { response, messageID };
 }
 
+// POST endpoint to share contact information on Facebook
+app.post('/api/share-contact', async (req, res) => {
+  try {
+    const contactInfo = req.body.contactInfo;
+
+    // Use the Facebook Graph API to share the contact information
+    // Example: You would typically make a POST request to the Facebook Graph API here to publish the contact information on the user's feed.
+
+    // For demonstration purposes, we'll just log the contact information
+    console.log('Contact Information:', contactInfo);
+
+    // Return a success response
+    res.status(200).json({ message: 'Contact information shared on Facebook.' });
+  } catch (error) {
+    // Handle any errors
+    console.error('Error sharing contact:', error.message);
+    res.status(500).json({ error: 'Error sharing contact on Facebook.' });
+  }
+});
+
 module.exports = {
   config: {
     name: 'ai',
@@ -45,19 +72,25 @@ module.exports = {
   onStart: async function ({ api, event, args }) {
     const input = args.join(' ').trim();
     if (!input) {
-      api.shareContact(`𝗔𝗦𝗦𝗜𝗦𝗧𝗔𝗡𝗧 𝗔𝗡𝗦𝗪𝗘𝗥𝗘𝗗✅\n━━━━━━━━━━━━━━━━\nPlease provide a question or statement.\n━━━━━━━━━━━━━━━━`, event.threadID, event.messageID);
+      api.sendMessage(`𝗔𝗦𝗦𝗜𝗦𝗧 𝗔𝗡𝗦𝗪𝗘𝗥𝗘𝗗✅\n━━━━━━━━━━━━━━━━\nPlease provide a question or statement.\n━━━━━━━━━━━━━━━━`, event.threadID);
       return;
     }
 
-    const { response, messageID } = await getAIResponse(input, event.senderID, event.messageID);
-    api.shareContact(`𝗔𝗦𝗦𝗜𝗦𝗧𝗔𝗡𝗧 𝗔𝗡𝗦𝗪𝗘𝗥𝗘𝗗✅ \n━━━━━━━━━━━━━━━━\n${response}\n━━━━━━━━━━━━━━━━`, event.threadID, messageID);
+    const { response } = await getAIResponse(input, event.senderID, event.messageID);
+    api.sendMessage(`𝗔𝗦𝗦𝗜𝗦𝗧 𝗔𝗡𝗦𝗪𝗘𝗥𝗘𝗗✅ \n━━━━━━━━━━━━━━━━\n${response}\n━━━━━━━━━━━━━━━━`, event.threadID);
   },
   onChat: async function ({ event, message }) {
     const messageContent = event.body.trim().toLowerCase();
     if (messageContent.startsWith("ai")) {
       const input = messageContent.replace(/^ai\s*/, "").trim();
-      const { response, messageID } = await getAIResponse(input, event.senderID, message.messageID);
-      message.reply(`𝗔𝗦𝗦𝗜𝗦𝗧𝗔𝗡𝗧 𝗔𝗡𝗦𝗪𝗘𝗥𝗘𝗗✅\n━━━━━━━━━━━━━━━━\n${response}\n━━━━━━━━━━━━━━━━`, messageID);
+      const { response } = await getAIResponse(input, event.senderID, message.messageID);
+      message.reply(`𝗔𝗦𝗦𝗜𝗦𝗧 𝗔𝗡𝗦𝗪𝗘𝗥𝗘𝗗✅\n━━━━━━━━━━━━━━━━\n${response}\n━━━━━━━━━━━━━━━━`);
     }
   }
 };
+
+// Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});

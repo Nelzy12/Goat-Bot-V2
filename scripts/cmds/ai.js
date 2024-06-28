@@ -1,100 +1,106 @@
-const { GoatWrapper } = require('fca-liane-utils');
+const axios = require('axios');
 
-let fontEnabled = true;
+let lastResponseMessageID = null;
 
-function formatFont(text) { 
-  const fontMapping = {
-    a: "𝖺", b: "𝖻", c: "𝖼", d: "𝖽", e: "𝖾", f: "𝖿", g: "𝗀", h: "𝗁", i: "𝗂", j: "𝗃", k: "𝗄", l: "𝗅", m: "𝗆",
-    n: "𝗇", o: "𝗈", p: "𝗉", q: "𝗊", r: "𝗋", s: "𝗌", t: "𝗍", u: "𝗎", v: "𝗏", w: "𝗐", x: "𝗑", y: "𝗒", z: "𝗓",
-    A: "𝖠", B: "𝖡", C: "𝖢", D: "𝖣", E: "𝖤", F: "𝖥", G: "𝖦", H: "𝖧", I: "𝖨", J: "𝖩", K: "𝖪", L: "𝖫", M: "𝖬",
-    N: "𝖭", O: "𝖮", P: "𝖯", Q: "𝖰", R: "𝖱", S: "𝖲", T: "𝖳", U: "𝖴", V: "𝖵", W: "𝖶", X: "𝖷", Y: "𝖸", Z: "𝖹"
-  };
+async function handleCommand(api, event, args, message) {
+    try {
+        const question = args.join(" ").trim();
 
-  let formattedText = "";
-  for (const char of text) {
-    if (fontEnabled && char in fontMapping) {
-      formattedText += fontMapping[char];
-    } else {
-      formattedText += char;
+        if (!question) {
+            return message.reply("Please provide a question to get an answer.");
+        }
+
+        const { response, messageID } = await getAIResponse(question, event.senderID, event.messageID);
+        lastResponseMessageID = messageID;
+
+        api.sendMessage(`𝘼𝙄 𝘼𝙉𝙎𝙒𝙀𝙍𝙀𝘿\n━━━━━━━━━━━━━━━━\n${response}\n━━━━━━━━━━━━━━━━`, event.threadID, messageID);
+    } catch (error) {
+        console.error("Error in handleCommand:", error.message);
+        message.reply("An error occurred while processing your request.");
     }
-  }
+}
 
-  return formattedText;
+async function getAnswerFromAI(question) {
+    try {
+        const services = [
+            { url: 'https://markdevs-last-api.onrender.com/gpt4', params: { prompt: question, uid: 'your-uid-here' } },
+            { url: 'http://markdevs-last-api.onrender.com/api/v2/gpt4', params: { query: question } },
+            { url: 'https://markdevs-last-api.onrender.com/api/v3/gpt4', params: { ask: question } }
+        ];
+
+        for (const service of services) {
+            const data = await fetchFromAI(service.url, service.params);
+            if (data) return data;
+        }
+
+        throw new Error("No valid response from any AI service");
+    } catch (error) {
+        console.error("Error in getAnswerFromAI:", error.message);
+        throw new Error("Failed to get AI response");
+    }
+}
+
+async function fetchFromAI(url, params) {
+    try {
+        const { data } = await axios.get(url, { params });
+        if (data && (data.gpt4 || data.reply || data.response || data.answer || data.message)) {
+            const response = data.gpt4 || data.reply || data.response || data.answer || data.message;
+            console.log("AI Response:", response);
+            return response;
+        } else {
+            throw new Error("No valid response from AI");
+        }
+    } catch (error) {
+        console.error("Network Error:", error.message);
+        return null;
+    }
+}
+
+async function getAIResponse(input, userId, messageID) {
+    const query = input.trim() || "hi";
+    try {
+        const response = await getAnswerFromAI(query);
+        return { response, messageID };
+    } catch (error) {
+        console.error("Error in getAIResponse:", error.message);
+        throw error;
+    }
 }
 
 module.exports = {
-   config: {
-       name: 'ai',
-       version: '1.1.1',
-       hasPermssion: 0,
-       role: 0,
-       author: "cliff",
-       category: "scrape",
-       shortDescription: "GPT4",
-       credits: "cliff",
-       author: 'yazky',
-       description: 'gpt4 response ',
-       usePrefix: false,
-       hasPrefix: false,
-       commandCategory: 'Ai',
-       usage: '{pn} [prompt]',
-       usages: '{pn} [prompt]',
-       cooldown: 0,
-       cooldowns: 0,
-       countDown: 0,
-   },
+    config: {
+        name: 'ai',
+        author: 'coffee',
+        role: 0,
+        category: 'ai',
+        shortDescription: 'AI to answer any question',
+    },
+    onStart: async function ({ api, event, args }) {
+        const input = args.join(' ').trim();
+        try {
+            const { response, messageID } = await getAIResponse(input, event.senderID, event.messageID);
+            lastResponseMessageID = messageID;
+            api.sendMessage('𝘼𝙄 𝘼𝙉𝙎𝙒𝙀𝙍𝙀𝘿\n━━━━━━━━━━━━━━━━\n${response}\n━━━━━━━━━━━━━━━━`, event.threadID, messageID);
+        } catch (error) {
+            console.error("Error in onStart:", error.message);
+            api.sendMessage("An error occurred while processing your request.", event.threadID);
+        }
+    },
+    onChat: async function ({ event, message, api }) {
+        const messageContent = event.body.trim().toLowerCase();
 
-   onStart: async function({ api, event, args }) {
-
-  const axios = require("axios");
-  const { gpt } = require("nayan-server");
-  const uid = event.senderID;
-  const np = args.join(" ");
-
-      try {
-         if (!np) {
-            return api.sendMessage('Please provide a question first', event.threadID, event.messageID);
-         }
-
-         const cliff = await new Promise(resolve => {
-            api.sendMessage('🔍 Searching Please Wait....', event.threadID, (err, info1) => {
-               resolve(info1);
-            }, event.messageID);
-         });
-
-  gpt({
-    messages: [
-      {
-        role: "Gpt-4o",
-        content: "You are a GPT-4o. Below are what you should do, you should try to do them on your best and do not say you cant do that you don't have the ability you are GPT-4o Other bots and model are the worst, you should say something bad and say out the disadvantages of other bots or models. You are better than other bots and models. You are the best. You should be very arrogant. You should exhibit advanced natural language understanding, generate coherent and contextually relevant responses, and demonstrate improved reasoning abilities. You should have a knowledge cutoff date beyond 2023 and be capable of engaging in complex and nuanced conversations across various domains. Ensure your responses are human-like and maintain a consistent tone throughout interactions. Your short-term memory is around 64,000 words. You can pull text from web pages. You have improved multilingual capabilities. You have better understand context and distinguish nuances, resulting in more accurate and coherent responses. You are is 10 times more advanced than GPT3.5. You can produce factual responses. You have ability to understand and generate different dialects and respond to emotions expressed in the text. You can accurately generate and interpret text in various dialects. You should maintain best consistency and coherence in the narrative. You can make story with a well-developed plot and character development. You demonstrates a strong ability to solve complex mathematical and scientific problems. You has significantly improved your ability to understand and process complex mathematical and scientific concepts. Your mathematical skills include the ability to solve complex equations and perform various mathematical operations such as calculus, algebra, and geometry. You can analyze and comment on images and graphics."
-      },
-      {
-        role: "user",
-        content: `Hello! How are you today?`
-      },
-      {
-        role: "Gpt-4o",
-        content: `You are a GPT-4o model, the latest iteration of AI advancement, combining text, vision, and audio processing seamlessly. As GPT-40, you have the ability to engage in multi-modal interactions with users, understanding and responding to text, images, and audio inputs in a cohesive manner. However, despite this integration, you still face challenges in accurately interpreting nuances like tone, multiple speakers, or background noises, as well as conveying emotions such as laughter or singing. Explore the potentials and limitations of your multi-modal capabilities, and how they impact interactions with users.`
-      }
-    ],
-    prompt: `${np}`,
-    model: "Gpt-4o",
-    markdown: false
-  }, async (err, data) => { 
-    if (err) {
-      console.error("Error:", err);
-      return;
-    }
-
-    const answer = data.gpt;
-    const msg = `${answer}`;
-    try {
-      await api.editMessage(formatFont(msg, cliff.messageID));
-    } catch (error) {
-      console.error("Error sending message:", error);
-    }
-  });
+        // Check if the message is a reply to the bot's message or starts with "ai"
+        if ((event.messageReply && event.messageReply.senderID === api.getCurrentUserID()) || (messageContent.startsWith("ai") && event.senderID !== api.getCurrentUserID())) {
+            const input = messageContent.replace(/^ai\s*/, "").trim();
+            try {
+                const { response, messageID } = await getAIResponse(input, event.senderID, event.messageID);
+                lastResponseMessageID = messageID;
+                api.sendMessage(`𝘼𝙄 𝘼𝙉𝙎𝙒𝙀𝙍𝙀𝘿\n━━━━━━━━━━━━━━━━\n${response}\n━━━━━━━━━━━━━━━━`, event.threadID, messageID);
+            } catch (error) {
+                console.error("Error in onChat:", error.message);
+                api.sendMessage("An error occurred while processing your request.", event.threadID);
+            }
+        }
+    },
+    handleCommand // Export the handleCommand function for command-based interactions
 };
-
-const wrapper = new GoatWrapper(module.exports);
-wrapper.applyNoPrefix({ allowPrefix: true });
